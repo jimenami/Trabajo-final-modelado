@@ -1,6 +1,6 @@
 # Memoria Técnica — Replicación ChatEV
 
-**Trabajo Final de Máster**
+**Trabajo de Máster**
 **Referencia original:** Qu, H. et al. *"ChatEV: Predicting electric vehicle charging demand as natural language processing"*. Transportation Research Part D 136 (2024) 104470.
 
 ---
