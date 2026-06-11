@@ -14,7 +14,7 @@ Replica el sistema ChatEV: un modelo T5-small entrenado con meta-aprendizaje (Re
 
 ## Estructura del repositorio
 
-'''Trabajo-final-modelado/
+```Trabajo-final-modelado/
 │
 ├── ChatEV_nuevo.ipynb          # Notebook principal: entrenamiento completo
 ├── chat_interface.ipynb        # Interfaz standalone (no requiere reentrenar)
@@ -46,7 +46,7 @@ Replica el sistema ChatEV: un modelo T5-small entrenado con meta-aprendizaje (Re
 │
 ├── ChatEV_memoria.docx         # Versión Word de la memoria
 └── 1-s2.0-S1361920924004279-main.pdf  # Paper original
-'''
+```
 ---
 
 ## Cómo ejecutar
