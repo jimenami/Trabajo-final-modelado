@@ -1,7 +1,174 @@
 # Memoria Técnica — Replicación ChatEV
 
+**Autoras:** Jimena Milla Moreno, Itsaso Ariztimuño Cenoz
 **Trabajo de Máster**
 **Referencia original:** Qu, H. et al. *"ChatEV: Predicting electric vehicle charging demand as natural language processing"*. Transportation Research Part D 136 (2024) 104470.
+
+---
+
+## Resumen
+
+Este trabajo aborda la replicación y análisis crítico del modelo ChatEV, un sistema de predicción de demanda de recarga de vehículos eléctricos (VE) que integra técnicas de procesamiento del lenguaje natural (PLN) con meta-aprendizaje. ChatEV reformula el problema de predicción de series temporales espacio-temporales como una tarea de generación de texto (text-to-text), empleando el modelo T5 como backbone y el algoritmo Reptile como estrategia de meta-aprendizaje.
+
+El modelo es evaluado sobre el dataset real ST-EVCDP, que contiene registros de ocupación, duración, volumen y precio de recarga en 247 zonas de tráfico de Shenzhen (China) durante 30 días a intervalos de 5 minutos. Se estudian los escenarios de predicción full-shot (zonas vistas durante el entrenamiento) y zero-shot (zonas no vistas), comparando los resultados con una línea base histórica y con las métricas reportadas en el artículo original.
+
+Los resultados obtenidos en la replicación son coherentes con los del paper, aunque con diferencias atribuibles al uso de un backbone de menor capacidad (T5-small frente a Sentence-T5), un número reducido de epochs y restricciones computacionales. El estudio de ablación confirma la contribución positiva tanto del fine-tuning mediante Reptile como del diseño del prompt contextualizado.
+
+---
+
+## Objetivos del Trabajo
+
+El objetivo principal es replicar, analizar y evaluar el modelo ChatEV propuesto en el artículo *"ChatEV: Predicting Electric Vehicle Charging Demand via Large Language Models"*, adaptándolo al entorno de cómputo disponible y estudiando su comportamiento sobre el dataset real ST-EVCDP.
+
+**Objetivos específicos:**
+
+- Comprender e implementar la reformulación text-to-text del problema de predicción de demanda de recarga de VE, transformando series temporales numéricas en prompts estructurados para un modelo de lenguaje.
+- Implementar el pipeline de meta-aprendizaje con el algoritmo Reptile sobre el dataset ST-EVCDP, replicando la división temporal y la separación de zonas vistas/no vistas del artículo original.
+- Evaluar el modelo en los escenarios full-shot y zero-shot, calculando las métricas MAE y RMSE y comparándolas con la línea base histórica y con los valores reportados en el paper.
+- Realizar un estudio de ablación que cuantifique la contribución individual del fine-tuning Reptile y del diseño del prompt.
+- Analizar críticamente las diferencias entre los resultados obtenidos y los del paper, identificando las causas y proponiendo líneas de mejora.
+
+---
+
+## Problema Planteado
+
+La electrificación del transporte está generando una demanda de infraestructura de recarga que requiere herramientas de predicción precisas y generalizables. El problema consiste en predecir la ocupación de carga de VE en el horizonte de 30 minutos siguientes dado el historial de la última hora, la información estática de la zona, el precio de la energía y la duración media de las sesiones de carga.
+
+La principal dificultad reside en la naturaleza espacio-temporal del problema: las zonas próximas presentan correlaciones de demanda, y el modelo debe ser capaz de generalizar a zonas no observadas durante el entrenamiento (escenario zero-shot).
+
+---
+
+## Estado del Arte
+
+### Predicción de demanda de recarga de vehículos eléctricos
+
+La predicción de la demanda de recarga de VE ha sido ampliamente estudiada. Los enfoques clásicos incluyen modelos estadísticos como ARIMA y sus variantes (Box & Jenkins, 1976), que modelan la componente temporal asumiendo estacionariedad. Sin embargo, la naturaleza no lineal y espacio-temporal de la demanda limita su eficacia en escenarios reales.
+
+Los métodos basados en aprendizaje profundo han demostrado mejores capacidades de generalización. Las redes LSTM y GRU capturan dependencias temporales de largo alcance (Hochreiter & Schmidhuber, 1997), mientras que las TCN ofrecen mayor eficiencia computacional. No obstante, estos modelos tratan cada zona de forma independiente, ignorando las correlaciones espaciales.
+
+### Modelos espacio-temporales con grafos
+
+Para capturar correlaciones espaciales entre estaciones de recarga se han propuesto redes neuronales de grafos (GNN). Kipf & Welling (2017) establecen las bases con GCN. Wu et al. (2019) proponen Simple Graph Convolution (SGC), que reduce la complejidad eliminando no-linealidades intermedias — base del módulo de propagación de mensajes de ChatEV.
+
+DCRNN (Li et al., 2018) y Graph WaveNet (Wu et al., 2019) combinan GNN con mecanismos de atención temporal y han establecido nuevos estados del arte en predicción de flujo de tráfico. El dataset ST-EVCDP fue diseñado específicamente para evaluar modelos espacio-temporales en el contexto de recarga de VE.
+
+### Modelos de lenguaje para series temporales
+
+El uso de LLM para análisis de series temporales es una línea emergente. Zhou et al. (2023) *"One Fits All"* demuestran que transformers preentrenados para PLN pueden adaptarse a tareas de predicción temporal mediante fine-tuning ligero.
+
+La familia T5 (Raffel et al., 2020) reformula todas las tareas de PLN como generación de texto, siendo especialmente adecuada para ChatEV. Sentence-T5 (Ni et al., 2022) extiende T5 para embeddings de oraciones — backbone del artículo original. Por restricciones computacionales, esta replicación emplea T5-small.
+
+Trabajos relacionados: Time-LLM (Jin et al., 2024) y PromptCast (Xue & Salim, 2023) también exploran la formulación de predicción temporal como tarea de PLN.
+
+### Meta-aprendizaje para generalización zero-shot
+
+El meta-aprendizaje busca aprender a aprender. MAML (Finn et al., 2017) aprende una inicialización óptima para fine-tuning rápido mediante gradientes de segundo orden.
+
+Reptile (Nichol & Schulman, 2018) simplifica MAML mediante interpolación directa en el espacio de parámetros, evitando gradientes de segundo orden y reduciendo significativamente el coste computacional. ChatEV adopta Reptile con cada zona de carga como tarea independiente.
+
+### Trabajo directamente replicado
+
+*"ChatEV: Predicting Electric Vehicle Charging Demand via Large Language Models"* propone un marco que integra: (i) reformulación text-to-text con prompts contextualizados (role-playing, caracterización de zona, series temporales históricas); (ii) Simple Graph Convolution para agregar información de vecinos; y (iii) meta-aprendizaje Reptile para generalización zero-shot. Reporta MAE de 3.29×10⁻² (full-shot) y 3.61×10⁻² (zero-shot), superando a los baselines de aprendizaje profundo tradicional.
+
+---
+
+## Análisis Exploratorio Espacial
+
+Notebook: `visualizacion_espacial.ipynb`. Integra el shapefile `SZ_districts.shp` con los datasets del proyecto para análisis exploratorio geoespacial de la infraestructura VE en Shenzhen.
+
+### Datos cargados
+
+| Fuente | Contenido | Registros |
+|---|---|---|
+| `SZ_districts.shp` | 10 distritos administrativos de Shenzhen (EPSG:4326) | 10 polígonos |
+| `stations.csv` | Estaciones de carga con lat/lon, n.º puntos rápidos/lentos | 1.706 estaciones |
+| `information.csv` | Características estáticas de las 247 celdas grid | 247 × 9 |
+| `occupancy.csv` | Tasa de ocupación normalizada | 8.640 timesteps |
+| `volume.csv` | Volumen energético (kWh) | 8.640 timesteps |
+
+Los 10 distritos son: Futian, Luohu, Nanshan, Yantian, Bao'an, Longgang, Longhua, Pingshan, Guangming, Dapeng New District.
+
+**Nota:** el shapefile `SZ_districts.shp` contiene 491 TAZ en total; para las visualizaciones se usan los 10 distritos administrativos de nivel superior como capa de fondo. Las 247 celdas grid del dataset corresponden a un subconjunto de las TAZ con infraestructura de carga real.
+
+### Visualizaciones generadas
+
+#### Mapa base — Estaciones por tipo (`map_stations.png`)
+
+Proyección de las 1.706 estaciones sobre los 10 distritos, diferenciadas por tipo de cargador:
+
+| Tipo | Color | N.º estaciones |
+|---|---|---|
+| Solo lento | Azul (steelblue) | mayoría |
+| Solo rápido | Rojo (tomato) | minoría |
+| Mixto (rápido + lento) | Amarillo (gold) | minoría |
+
+#### Choropleth por distrito (`choropleth_districts.png`)
+
+Tres mapas coropletas por distrito administrativo:
+1. **N.º de estaciones** — escala YlOrRd
+2. **Total puntos de carga** — escala Blues
+3. **Cargadores rápidos** — escala Reds
+
+Generado mediante *spatial join* (sjoin within) entre `gdf_stations` y los polígonos de distrito.
+
+#### Heatmap de actividad por celda grid (`heatmap_grid.png`)
+
+Scatter georreferenciado sobre los 247 centroides de celda, donde:
+- **Color** = ocupación media o volumen medio en el periodo de 30 días
+- **Tamaño del punto** ∝ número de puntos de carga en la celda
+
+Métricas representadas:
+- Ocupación media (escala `hot_r`)
+- Volumen medio en kWh (escala `YlGnBu`)
+
+#### CBD vs. No-CBD y precio dinámico (`map_cbd.png`)
+
+Mapa que distingue las celdas grid según tipo de zona y esquema tarifario:
+
+| Categoría | Color | Descripción |
+|---|---|---|
+| No CBD | Azul | Zonas fuera del centro de negocios |
+| CBD | Rojo | Zonas del distrito central de negocios |
+| Precio dinámico | Borde dorado | Celdas con tarificación por tiempo |
+
+Las zonas CBD presentan mayor ocupación media que No-CBD, coherente con mayor densidad de actividad urbana.
+
+#### Series temporales — Top 6 celdas por volumen (`timeseries_top6.png`)
+
+Para las 6 celdas con mayor volumen medio, se representan las primeras 336 horas (2 semanas) de la serie de volumen (kWh). Cada subgráfico muestra etiqueta de celda, condición CBD y número de puntos de carga.
+
+#### Estadísticas por distrito (`barplot_districts.png`)
+
+Tabla y gráfico de barras con agregación spatial join grid → distrito:
+
+| Columna | Descripción |
+|---|---|
+| `n_grids` | N.º de celdas grid en el distrito |
+| `total_puntos` | Suma de puntos de carga |
+| `occ_media` | Ocupación media de las celdas del distrito |
+| `vol_media` | Volumen medio (kWh) por celda |
+| `n_cbd` | N.º de celdas CBD |
+| `n_dynamic` | N.º de celdas con precio dinámico |
+
+#### Mapa interactivo Folium (`mapa_interactivo.html`)
+
+Mapa web interactivo (CartoDB Positron) con:
+- Polígonos de los 10 distritos con tooltip de nombre
+- Muestra aleatoria de 500 estaciones como `CircleMarker` con popup (ID, rápido, lento)
+- Leyenda HTML incrustada por tipo de cargador
+
+### Librerías utilizadas
+
+`geopandas`, `folium`, `contextily`, `mapclassify`, `osmnx` (fallback para descargar distritos desde OSM si el shapefile no está disponible).
+
+### Relación con el modelo ChatEV
+
+Las visualizaciones sirven para:
+
+1. **Validar la matriz de adyacencia** `adj.csv`: zonas geográficamente contiguas deben estar conectadas en el grafo — verificable comparando el choropleth con `heatmap_grid.png`.
+2. **Detectar zonas CBD** con mayor demanda, lo que justifica incluir el atributo `CBD` como feature estática en el prompt.
+3. **Identificar zonas de alto error de predicción** correlacionándolas con características geográficas (densidad de red viaria, pertenencia a CBD, precio dinámico).
+4. **Contexto para el módulo SGC**: el mapa de vecindad espacial muestra visualmente por qué la propagación de mensajes en grafo captura correlaciones reales de demanda entre zonas adyacentes.
 
 ---
 
@@ -513,4 +680,38 @@ La contribución adicional respecto al paper es la **integración de datos exter
 
 ---
 
-*Documento generado a partir de: paper PDF (Transportation Research Part D 136, 2024, 104470), notebook `ChatEV_nuevo.ipynb`, `fetch_weather.ipynb`, `fetch_address.ipynb`, `fetch_calendar.ipynb`.*
+---
+
+## Bibliografía
+
+Box, G. E. P., & Jenkins, G. M. (1976). *Time series analysis: Forecasting and control*. Holden-Day.
+
+Finn, C., Abbeel, P., & Levine, S. (2017). Model-agnostic meta-learning for fast adaptation of deep networks. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, 1126–1135.
+
+Hochreiter, S., & Schmidhuber, J. (1997). Long short-term memory. *Neural Computation*, 9(8), 1735–1780.
+
+Jin, M., Wang, S., Ma, L., Chu, Z., Zhang, J. Y., Shi, X., ... & Wen, Q. (2024). Time-LLM: Time series forecasting by reprogramming large language models. *International Conference on Learning Representations (ICLR)*.
+
+Kipf, T. N., & Welling, M. (2017). Semi-supervised classification with graph convolutional networks. *International Conference on Learning Representations (ICLR)*.
+
+Li, Y., Yu, R., Shahabi, C., & Liu, Y. (2018). Diffusion convolutional recurrent neural network: Data-driven traffic forecasting. *International Conference on Learning Representations (ICLR)*.
+
+Liu, Z., et al. (2024). ChatEV: Predicting Electric Vehicle Charging Demand via Large Language Models. *arXiv preprint*. [Dataset: https://github.com/IntelligentSystemsLab/ST-EVCDP]
+
+Ni, J., Abrego, G. H., Constant, N., Ma, J., Hall, K. B., Cer, D., & Yang, Y. (2022). Sentence-T5: Scalable sentence encoders from pre-trained text-to-text models. *Findings of ACL*.
+
+Nichol, A., & Schulman, J. (2018). Reptile: A scalable metalearning algorithm. *arXiv preprint arXiv:1803.02999*.
+
+Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., ... & Liu, P. J. (2020). Exploring the limits of transfer learning with a unified text-to-text transformer. *Journal of Machine Learning Research*, 21(140), 1–67.
+
+Wu, F., Zhang, T., Souza Jr, A. H. D., Fifty, C., Yu, T., & Weinberger, K. Q. (2019). Simplifying graph convolutional networks. *Proceedings of the 36th ICML*.
+
+Wu, Z., Pan, S., Long, G., Jiang, J., Chang, X., & Zhang, C. (2019). Graph WaveNet for deep spatial-temporal graph modeling. *Proceedings of IJCAI*.
+
+Xue, H., & Salim, F. D. (2023). PromptCast: A new prompt-based learning paradigm for time series forecasting. *IEEE Transactions on Knowledge and Data Engineering*.
+
+Zhou, T., Niu, P., Sun, L., Jin, L., & Wang, Z. (2023). One fits all: Power general time series analysis by pretrained LM. *Advances in Neural Information Processing Systems (NeurIPS)*.
+
+---
+
+*Documento generado a partir de: paper PDF (Transportation Research Part D 136, 2024, 104470), notebook `ChatEV_nuevo.ipynb`, `fetch_weather.ipynb`, `fetch_address.ipynb`, `fetch_calendar.ipynb`, `ChatEV_memoria.docx`.*

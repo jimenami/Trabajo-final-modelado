@@ -1,2 +1,10 @@
 .vscode/
 chatev_model/
+*.DS_Store
+*.log   
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
