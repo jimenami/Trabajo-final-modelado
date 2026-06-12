@@ -235,6 +235,14 @@ Se aplica una **normalización Min-Max por zona** sobre las series temporales de
 
 Para incorporar información de vecindad espacial, se implementa el concepto de **Graph Message Passing** inspirado en GCN simplificado (Wu et al., 2019). La matriz de adyacencia `adj.csv` (binaria o ponderada) se utiliza para calcular la **ocupación media de las zonas vecinas** (`Average Neighboring Charging Occupancy`), que se añade como una serie temporal adicional en el prompt del modelo.
 
+El operador de **Simple Graph Convolution** aplicado es:
+
+$$h_i = \text{mean}_{j \in \mathcal{N}(i)}\ x_j$$
+
+donde $x_j$ es la ocupación normalizada de la zona vecina $j$ en el instante $t$, y $\mathcal{N}(i)$ es el conjunto de vecinos de la zona $i$ según `adj.csv`. Para zonas aisladas (sin vecinos en la matriz de adyacencia) se utiliza la propia ocupación de la zona como fallback: $h_i = x_i$.
+
+**Nota sobre aristas:** la matriz `adj.csv` almacena **1.006 entradas dirigidas** (i→j y j→i para cada par adyacente), equivalentes a **503 conexiones no dirigidas** únicas en el grafo.
+
 ### 2.3. División cronológica del conjunto de datos
 
 La división sigue el protocolo del paper: se divide en orden cronológico en tres subconjuntos:
@@ -417,6 +425,18 @@ La pérdida desciende rápidamente de 5.17 a 0.66 en las primeras 20 épocas. A 
 ### 4.5. Comparación con el paper
 
 El paper entrena durante hasta 200 épocas con early stopping a 10 épocas de paciencia, sobre servidores con dos GPU GeForce RTX 3090. La replicación se ejecutó en Google Colab (GPU T4) con un máximo de 40 épocas y un backbone reducido (T5-small en lugar de Sentence-T5 completo), lo que limita la capacidad del modelo pero permite completar el experimento en los recursos disponibles.
+
+### 4.6. Arquitectura general del sistema
+
+Resumen del pipeline completo implementado:
+
+| Módulo | Descripción |
+|---|---|
+| **S1** | Carga y preprocesado: normalización Min-Max por zona, propagación de mensajes en grafo (SGC), división 60/20/20 y separación zonas seen/unseen |
+| **S2** | Reformulación text-to-text: construcción de prompts estructurados con ventana deslizante (stride=12) y tokenización T5 |
+| **S3** | Meta-entrenamiento Reptile: 40 epochs máximo, S=3 pasos inner, lr=1e-4, ε=0.1, early stopping patience=7 |
+| **S4** | Evaluación: predicción greedy, métricas MAE/RMSE, comparativa con baseline histórico y valores del paper |
+| **S5** | Ablación: variantes w/o Finetuning (modelo base sin Reptile) y w/o Prompting (sólo serie local como input) |
 
 ---
 
